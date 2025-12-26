@@ -22,14 +22,11 @@ from sklearn.metrics import (
 )
 
 
-class MetricsTracker:
-    """Track and compute evaluation metrics."""
-    
+class MetricsTracker:    
     def __init__(self):
         self.reset()
     
     def reset(self):
-        """Reset all tracked values."""
         self.y_true = []
         self.y_pred = []
         self.y_scores = []
@@ -65,7 +62,7 @@ class MetricsTracker:
             'f1': f1_score(y_true, y_pred, zero_division=0),
         }
         
-        # Compute ROC AUC
+        # ROC AUC
         if len(np.unique(y_true)) > 1:  # Need both classes for ROC
             fpr, tpr, _ = roc_curve(y_true, y_scores)
             metrics['auc'] = auc(fpr, tpr)
@@ -74,7 +71,6 @@ class MetricsTracker:
         else:
             metrics['auc'] = 0.0
         
-        # Compute confusion matrix
         cm = confusion_matrix(y_true, y_pred)
         metrics['confusion_matrix'] = cm
         
@@ -107,22 +103,17 @@ def train_epoch(
     total = 0
     
     for images, labels in train_loader:
-        # Move to device
         images = images.to(device)
-        labels = labels.to(device).float().unsqueeze(1)  # Shape: (batch_size, 1)
+        labels = labels.to(device).float().unsqueeze(1)  # (batch_size, 1)
         
-        # Zero gradients
         optimizer.zero_grad()
         
-        # Forward pass
         outputs = model(images)
         loss = criterion(outputs, labels)
         
-        # Backward pass
         loss.backward()
         optimizer.step()
         
-        # Track metrics
         running_loss += loss.item() * images.size(0)
         predictions = (outputs >= 0.5).float()
         correct += (predictions == labels).sum().item()
@@ -158,21 +149,16 @@ def evaluate(
     
     with torch.no_grad():
         for images, labels in data_loader:
-            # Move to device
             images = images.to(device)
             labels = labels.to(device).float().unsqueeze(1)
             
-            # Forward pass
             outputs = model(images)
             loss = criterion(outputs, labels)
             
-            # Track loss
             running_loss += loss.item() * images.size(0)
             
-            # Get predictions
             predictions = (outputs >= 0.5).float()
             
-            # Update metrics
             metrics_tracker.update(labels, predictions, outputs)
     
     avg_loss = running_loss / len(data_loader.dataset)
@@ -213,11 +199,10 @@ def train_model(
     model = model.to(device)
     print(f"Training on device: {device}")
     
-    # Loss and optimizer (use BCELoss since we have sigmoid output)
     criterion = nn.BCELoss()
+    # use BCELoss since we have sigmoid output
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     
-    # Training history
     history = {
         'train_loss': [],
         'train_acc': [],
@@ -231,20 +216,16 @@ def train_model(
     best_model_state = None
     
     print(f"\nStarting training for {num_epochs} epochs...")
-    print("="*70)
     
     for epoch in range(num_epochs):
         start_time = time.time()
         
-        # Train
         train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
         
-        # Validate
         val_loss, val_metrics = evaluate(model, val_loader, criterion, device)
         val_acc = val_metrics['accuracy']
         val_auc = val_metrics.get('auc', 0.0)
         
-        # Update history
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
         history['val_loss'].append(val_loss)
@@ -253,12 +234,10 @@ def train_model(
         
         epoch_time = time.time() - start_time
         
-        # Print progress
         print(f"Epoch [{epoch+1}/{num_epochs}] ({epoch_time:.1f}s)")
         print(f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
         print(f"  Val Loss:   {val_loss:.4f}, Val Acc:   {val_acc:.4f}, Val AUC: {val_auc:.4f}")
         
-        # Early stopping
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             epochs_no_improve = 0
@@ -272,12 +251,10 @@ def train_model(
         
         print()
     
-    # Load best model
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
         print("Loaded best model from training")
     
-    # Save model
     if save_path:
         torch.save({
             'model_state_dict': model.state_dict(),
@@ -313,9 +290,7 @@ def test_model(
     print("\nEvaluating on test set...")
     test_loss, metrics = evaluate(model, test_loader, criterion, device)
     
-    print("="*70)
-    print("TEST RESULTS")
-    print("="*70)
+    print("Test Results:")
     print(f"Test Loss:      {test_loss:.4f}")
     print(f"Accuracy:       {metrics['accuracy']:.4f} ({metrics['accuracy']*100:.2f}%)")
     print(f"Precision:      {metrics['precision']:.4f}")
@@ -324,14 +299,7 @@ def test_model(
     print(f"AUC:            {metrics.get('auc', 0):.4f}")
     print()
     
-    # Confusion matrix
     cm = metrics['confusion_matrix']
-    print("Confusion Matrix:")
-    print(f"                Predicted")
-    print(f"              Benign  Malware")
-    print(f"Actual Benign   {cm[0,0]:4d}    {cm[0,1]:4d}")
-    print(f"       Malware  {cm[1,0]:4d}    {cm[1,1]:4d}")
-    print("="*70)
     
     metrics['test_loss'] = test_loss
     return metrics
@@ -349,7 +317,7 @@ def plot_training_history(history: Dict, save_path: Optional[str] = None):
     
     epochs = range(1, len(history['train_loss']) + 1)
     
-    # Loss plot
+    # Loss 
     axes[0].plot(epochs, history['train_loss'], 'b-', label='Train Loss')
     axes[0].plot(epochs, history['val_loss'], 'r-', label='Val Loss')
     axes[0].set_xlabel('Epoch')
@@ -358,7 +326,7 @@ def plot_training_history(history: Dict, save_path: Optional[str] = None):
     axes[0].legend()
     axes[0].grid(True)
     
-    # Accuracy plot
+    # Accuracy 
     axes[1].plot(epochs, history['train_acc'], 'b-', label='Train Acc')
     axes[1].plot(epochs, history['val_acc'], 'r-', label='Val Acc')
     axes[1].set_xlabel('Epoch')
@@ -367,7 +335,7 @@ def plot_training_history(history: Dict, save_path: Optional[str] = None):
     axes[1].legend()
     axes[1].grid(True)
     
-    # AUC plot
+    # AUC 
     axes[2].plot(epochs, history['val_auc'], 'g-', label='Val AUC')
     axes[2].set_xlabel('Epoch')
     axes[2].set_ylabel('AUC')
@@ -397,8 +365,7 @@ def plot_roc_curve(metrics: Dict, save_path: Optional[str] = None):
         return
     
     plt.figure(figsize=(8, 6))
-    plt.plot(metrics['fpr'], metrics['tpr'], 'b-', linewidth=2, 
-             label=f'ROC curve (AUC = {metrics["auc"]:.4f})')
+    plt.plot(metrics['fpr'], metrics['tpr'], 'b-', linewidth=2, label=f'ROC curve (AUC = {metrics["auc"]:.4f})')
     plt.plot([0, 1], [0, 1], 'r--', linewidth=1, label='Random classifier')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
@@ -431,7 +398,7 @@ def plot_confusion_matrix(cm: np.ndarray, save_path: Optional[str] = None):
     plt.xticks(tick_marks, classes)
     plt.yticks(tick_marks, classes)
     
-    # Add text annotations
+    # text annotations
     thresh = cm.max() / 2.
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):

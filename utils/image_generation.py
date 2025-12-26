@@ -5,7 +5,7 @@ as described in "Malware Detection Using Frequency Domain-Based Image Visualizat
 """
 
 import numpy as np
-from scipy.fft import dctn, idctn
+from scipy.fft import dctn
 from typing import Tuple
 import math
 
@@ -55,18 +55,16 @@ def create_bigram_image(bigram_freq: np.ndarray, zero_out_0000: bool = True) -> 
         zero_out_0000: Whether to zero out the "0000" bigram before normalization (as per paper)
         
     Returns:
-        256×256 grayscale image with normalized bigram frequencies
+        256x256 grayscale image with normalized bigram frequencies
     """
     # Zero out the bigram "0000" if specified (as mentioned in the paper)
     if zero_out_0000:
         bigram_freq[0] = 0
     
-    # Normalize frequencies
     total = np.sum(bigram_freq)
     if total > 0:
         bigram_freq = bigram_freq / total
     
-    # Reshape into 256×256 image where pixel(i,j) represents bigram (i,j)
     bigram_image = bigram_freq.reshape(256, 256)
     
     return bigram_image
@@ -82,7 +80,6 @@ def apply_2d_dct(image: np.ndarray) -> np.ndarray:
     Returns:
         DCT-transformed image (same dimensions)
     """
-    # Apply 2D DCT using scipy.fft.dctn (2D DCT)
     # dctn with type=2 is equivalent to the standard DCT-II
     dct_image = dctn(image, type=2, norm='ortho')
     
@@ -104,18 +101,19 @@ def create_bigram_dct_image(file_path: str) -> np.ndarray:
     Returns:
         256×256 single-channel bigram-DCT image
     """
-    # Step A: Extract bigrams
+    # Extract bigrams
     byte_data = read_binary_file(file_path)
     bigram_freq = extract_bigrams(byte_data)
     
-    # Step B: Create sparse bigram image
+    # Create sparse bigram image
     bigram_image = create_bigram_image(bigram_freq, zero_out_0000=True)
     
-    # Step C: Apply 2D DCT
+    # Apply 2D DCT
     dct_image = apply_2d_dct(bigram_image)
     
     return dct_image
 
+# ---------------------------------------------------
 
 def create_byteplot_image(file_path: str, target_size: Tuple[int, int] = (256, 256)) -> np.ndarray:
     """
@@ -131,24 +129,22 @@ def create_byteplot_image(file_path: str, target_size: Tuple[int, int] = (256, 2
     """
     byte_data = read_binary_file(file_path)
     
-    # Convert bytes to numpy array
     byte_array = np.frombuffer(byte_data, dtype=np.uint8)
     
-    # Calculate dimensions for square-ish image
+    # get dimensions for square-ish image
     total_bytes = len(byte_array)
     side_length = int(math.sqrt(total_bytes))
     
-    # Truncate to make it square
+    # Truncate to be square
     truncated_length = side_length * side_length
     byte_array = byte_array[:truncated_length]
     
-    # Reshape into square image
+    # Reshape into square
     byteplot = byte_array.reshape(side_length, side_length)
     
     # Resize to target size using simple interpolation
     byteplot_resized = resize_image(byteplot, target_size)
     
-    # Normalize to 0-1 range
     byteplot_resized = byteplot_resized.astype(np.float32) / 255.0
     
     return byteplot_resized
@@ -199,15 +195,9 @@ def create_two_channel_image(file_path: str) -> np.ndarray:
     return two_channel_image
 
 
-if __name__ == "__main__":
     # Example usage
-    import sys
-    
-    if len(sys.argv) < 2:
-        print("Usage: python image_generation.py <path_to_executable>")
-        sys.exit(1)
-    
-    exe_path = sys.argv[1]
+if __name__ == "__main__":
+    exe_path = None
     
     print("Generating bigram-DCT image...")
     bigram_dct = create_bigram_dct_image(exe_path)

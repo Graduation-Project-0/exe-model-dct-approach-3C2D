@@ -1,40 +1,31 @@
-"""
-PyTorch Dataset and DataLoader for Malware Detection
-Loads executable files and generates images for both pipelines
-"""
-
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
-from typing import Tuple, List, Optional
+from typing import Tuple, Optional
 import random
 
 
 class MalwareImageDataset(Dataset):
-    """
-    Dataset for loading executable files and generating images.
-    Supports both Pipeline 1 (single-channel bigram-DCT) and Pipeline 2 (two-channel ensemble).
-    """
-    
     def __init__(
         self, 
         data_dir: str, 
         mode: str = 'bigram_dct',  # 'bigram_dct' or 'two_channel'
         max_samples: Optional[int] = None
     ):
-        """
-        Args:
-            data_dir: Root directory containing 'malware' and 'benign' subdirectories
-            mode: 'bigram_dct' for Pipeline 1, 'two_channel' for Pipeline 2
-            max_samples: Maximum number of samples to load (None for all)
-        """
         self.data_dir = data_dir
         self.mode = mode
-        self.samples = []  # List of (file_path, label) tuples
+        self.samples = []  # List of (file_path, label)
         
         import sys
-        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        sys.path.append(
+            os.path.dirname(
+                os.path.dirname(
+                    os.path.abspath(__file__)
+                )
+            )
+        )
+
         from utils.image_generation import create_bigram_dct_image, create_two_channel_image
         
         self.create_bigram_dct_image = create_bigram_dct_image
@@ -44,6 +35,7 @@ class MalwareImageDataset(Dataset):
         
     def _load_samples(self, max_samples: Optional[int]):
         """Load all executable file paths with their labels."""
+        
         malware_dir = os.path.join(self.data_dir, 'malware')
         benign_dir = os.path.join(self.data_dir, 'benign')
         
@@ -66,10 +58,10 @@ class MalwareImageDataset(Dataset):
         if max_samples is not None:
             self.samples = self.samples[:max_samples]
         
-        print(f"Loaded {len(self.samples)} samples")
+        print(f"Loaded {len(self.samples)} samples...")
         malware_count = sum(1 for _, label in self.samples if label == 1)
         benign_count = len(self.samples) - malware_count
-        print(f"  Malware: {malware_count}, Benign: {benign_count}")
+        print(f"Malware: {malware_count}, Benign: {benign_count}")
     
     def __len__(self) -> int:
         return len(self.samples)
@@ -88,19 +80,20 @@ class MalwareImageDataset(Dataset):
             if self.mode == 'bigram_dct':
                 # Pipeline 1: Single-channel bigram-DCT
                 image = self.create_bigram_dct_image(file_path)
-                # Add channel dimension: (H, W) -> (1, H, W)
+                
+                # (H, W) -> (1, H, W)
                 image = np.expand_dims(image, axis=0)
             
             elif self.mode == 'two_channel':
                 # Pipeline 2: Two-channel ensemble
                 image = self.create_two_channel_image(file_path)
-                # Convert (H, W, C) -> (C, H, W)
+                
+                # (H, W, C) -> (C, H, W)
                 image = np.transpose(image, (2, 0, 1))
             
             else:
                 raise ValueError(f"Unknown mode: {self.mode}")
             
-            # Convert to float32 tensor
             image_tensor = torch.from_numpy(image).float()
             
             return image_tensor, label
@@ -141,28 +134,24 @@ def create_data_loaders(
     Returns:
         train_loader, val_loader, test_loader
     """
-    # Create full dataset
     full_dataset = MalwareImageDataset(data_dir, mode=mode, max_samples=max_samples)
     
-    # Calculate split sizes
     total_size = len(full_dataset)
     train_size = int(train_split * total_size)
     val_size = int(val_split * total_size)
     test_size = total_size - train_size - val_size
     
     print(f"\nDataset splits:")
-    print(f"  Train: {train_size} ({train_split*100:.0f}%)")
-    print(f"  Val:   {val_size} ({val_split*100:.0f}%)")
-    print(f"  Test:  {test_size} ({test_split*100:.0f}%)")
+    print(f"\tTrain: {train_size} ({train_split*100:.0f}%)")
+    print(f"\tVal:   {val_size} ({val_split*100:.0f}%)")
+    print(f"\tTest:  {test_size} ({test_split*100:.0f}%)")
     
-    # Split dataset
     train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(
         full_dataset,
         [train_size, val_size, test_size],
         generator=torch.Generator().manual_seed(42)
     )
     
-    # Create data loaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -189,9 +178,8 @@ def create_data_loaders(
     
     return train_loader, val_loader, test_loader
 
-
+# Example usage
 if __name__ == "__main__":
-    # Example usage
     data_dir = "./data"
     
     print("Testing Pipeline 1 (Bigram-DCT)...")
@@ -202,7 +190,6 @@ if __name__ == "__main__":
         max_samples=100
     )
     
-    # Test loading a batch
     for images, labels in train_loader:
         print(f"Batch shape: {images.shape}, Labels: {labels.shape}")
         print(f"Image range: [{images.min():.3f}, {images.max():.3f}]")
@@ -216,7 +203,6 @@ if __name__ == "__main__":
         max_samples=100
     )
     
-    # Test loading a batch
     for images, labels in train_loader:
         print(f"Batch shape: {images.shape}, Labels: {labels.shape}")
         print(f"Image range: [{images.min():.3f}, {images.max():.3f}]")

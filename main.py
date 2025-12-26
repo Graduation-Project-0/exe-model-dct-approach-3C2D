@@ -1,24 +1,7 @@
-"""
-Main execution script for Malware Detection using Frequency Domain-Based Image Visualization
-Implements both Pipeline 1 (Bigram-DCT) and Pipeline 2 (Ensemble) from the paper
-
-Usage:
-    # Train Pipeline 1 (Bigram-DCT single-channel)
-    python main.py --pipeline 1 --data_dir ./data --epochs 50
-
-    # Train Pipeline 2 (Two-channel ensemble)
-    python main.py --pipeline 2 --data_dir ./data --epochs 50
-
-    # Test a saved model
-    python main.py --pipeline 1 --data_dir ./data --test_only --model_path ./checkpoints/pipeline1_best.pth
-"""
-
-import argparse
 import os
 import torch
 from pathlib import Path
 
-# Import custom modules
 from utils.data_loader import create_data_loaders
 from models.cnn_models import C3C2D_SingleChannel, C3C2D_TwoChannel, count_parameters
 from utils.training import (
@@ -30,142 +13,41 @@ from utils.training import (
 )
 
 
-def parse_args():
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description='Malware Detection using Frequency Domain-Based Image Visualization'
-    )
-    
-    # Pipeline selection
-    parser.add_argument(
-        '--pipeline',
-        type=int,
-        choices=[1, 2],
-        required=True,
-        help='Pipeline to run: 1 (Bigram-DCT single-channel) or 2 (Two-channel ensemble)'
-    )
-    
-    # Data arguments
-    parser.add_argument(
-        '--data_dir',
-        type=str,
-        required=True,
-        help='Directory containing malware and benign subdirectories'
-    )
-    
-    parser.add_argument(
-        '--max_samples',
-        type=int,
-        default=None,
-        help='Maximum number of samples to use (for testing, default: all)'
-    )
-    
-    # Training arguments
-    parser.add_argument(
-        '--epochs',
-        type=int,
-        default=50,
-        help='Number of training epochs (default: 50)'
-    )
-    
-    parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=32,
-        help='Batch size for training (default: 32)'
-    )
-    
-    parser.add_argument(
-        '--learning_rate',
-        type=float,
-        default=0.001,
-        help='Learning rate (default: 0.001)'
-    )
-    
-    parser.add_argument(
-        '--patience',
-        type=int,
-        default=10,
-        help='Early stopping patience (default: 10)'
-    )
-    
-    # Data split arguments
-    parser.add_argument(
-        '--train_split',
-        type=float,
-        default=0.7,
-        help='Training data fraction (default: 0.7)'
-    )
-    
-    parser.add_argument(
-        '--val_split',
-        type=float,
-        default=0.2,
-        help='Validation data fraction (default: 0.2)'
-    )
-    
-    parser.add_argument(
-        '--test_split',
-        type=float,
-        default=0.1,
-        help='Test data fraction (default: 0.1)'
-    )
-    
-    # Model saving/loading
-    parser.add_argument(
-        '--checkpoint_dir',
-        type=str,
-        default='./checkpoints',
-        help='Directory to save model checkpoints (default: ./checkpoints)'
-    )
-    
-    parser.add_argument(
-        '--model_path',
-        type=str,
-        default=None,
-        help='Path to saved model for testing or resuming training'
-    )
-    
-    parser.add_argument(
-        '--test_only',
-        action='store_true',
-        help='Only run testing (requires --model_path)'
-    )
-    
-    # Output arguments
-    parser.add_argument(
-        '--output_dir',
-        type=str,
-        default='./results',
-        help='Directory to save results and plots (default: ./results)'
-    )
-    
-    parser.add_argument(
-        '--no_plot',
-        action='store_true',
-        help='Skip plotting results'
-    )
-    
-    # Device
-    parser.add_argument(
-        '--device',
-        type=str,
-        default='auto',
-        choices=['auto', 'cpu', 'cuda'],
-        help='Device to use for training (default: auto)'
-    )
-    
-    return parser.parse_args()
+
+# Pipeline selection: 1 (Bigram-DCT single-channel) or 2 (Two-channel ensemble)
+PIPELINE = 1
+
+# Data settings
+DATA_DIR = "./data"
+MAX_SAMPLES = None
+
+EPOCHS = 50
+BATCH_SIZE = 32
+LEARNING_RATE = 0.001
+PATIENCE = 10
+
+TRAIN_SPLIT = 0.7
+VAL_SPLIT = 0.2
+TEST_SPLIT = 0.1
+
+# Model saving/loading
+CHECKPOINT_DIR = "./checkpoints"
+MODEL_PATH = None
+TEST_ONLY = False  # Set to True to only run testing (requires MODEL_PATH)
+
+OUTPUT_DIR = "./results"
+NO_PLOT = False  # True to skip plotting
+
+# Device: 'cpu', or 'cuda'
+DEVICE = "auto"
 
 
 def setup_directories(checkpoint_dir: str, output_dir: str):
-    """Create necessary directories."""
     Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
 
 def get_device(device_arg: str) -> torch.device:
-    """Get torch device."""
     if device_arg == 'auto':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
@@ -173,206 +55,165 @@ def get_device(device_arg: str) -> torch.device:
     return device
 
 
-def run_pipeline_1(args):
-    """Run Pipeline 1: Bigram-DCT single-channel CNN."""
-    print("="*70)
-    print("PIPELINE 1: BIGRAM-DCT FREQUENCY IMAGE (Single-Channel)")
-    print("="*70)
+def run_pipeline_1():
+    print("Pipeline 1: BIGRAM-DCT Frequency Image (Single-Channel)")
     print()
     
-    # Setup
-    device = get_device(args.device)
-    setup_directories(args.checkpoint_dir, args.output_dir)
+    device = get_device(DEVICE)
+    setup_directories(CHECKPOINT_DIR, OUTPUT_DIR)
     
-    # Create data loaders
     print("Loading data...")
     train_loader, val_loader, test_loader = create_data_loaders(
-        data_dir=args.data_dir,
+        data_dir=DATA_DIR,
         mode='bigram_dct',
-        batch_size=args.batch_size,
-        train_split=args.train_split,
-        val_split=args.val_split,
-        test_split=args.test_split,
-        max_samples=args.max_samples,
+        batch_size=BATCH_SIZE,
+        train_split=TRAIN_SPLIT,
+        val_split=VAL_SPLIT,
+        test_split=TEST_SPLIT,
+        max_samples=MAX_SAMPLES,
         num_workers=0
     )
     
-    # Create model
-    print("\nInitializing model...")
+    print("\nmodel...")
     model = C3C2D_SingleChannel()
     print(f"Model: 3C2D CNN (Single-Channel)")
     print(f"Total parameters: {count_parameters(model):,}")
     
-    # Define paths
-    model_save_path = os.path.join(args.checkpoint_dir, 'pipeline1_best.pth')
+    model_save_path = os.path.join(CHECKPOINT_DIR, 'pipeline1_best.pth')
     
     # Load model if specified
-    if args.model_path:
-        print(f"\nLoading model from {args.model_path}")
-        checkpoint = torch.load(args.model_path, map_location=device)
+    if MODEL_PATH:
+        print(f"\nLoading model from {MODEL_PATH}")
+        checkpoint = torch.load(MODEL_PATH, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
     
     # Training
-    if not args.test_only:
-        print("\n" + "="*70)
-        print("TRAINING")
-        print("="*70)
+    if not TEST_ONLY:
+        print("Training...")
         
         history = train_model(
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
-            num_epochs=args.epochs,
-            learning_rate=args.learning_rate,
+            num_epochs=EPOCHS,
+            learning_rate=LEARNING_RATE,
             device=device,
             save_path=model_save_path,
-            patience=args.patience
+            patience=PATIENCE
         )
         
-        # Plot training history
-        if not args.no_plot:
-            plot_path = os.path.join(args.output_dir, 'pipeline1_training_history.png')
+        if not NO_PLOT:
+            plot_path = os.path.join(OUTPUT_DIR, 'pipeline1_training_history.png')
             plot_training_history(history, save_path=plot_path)
     
-    # Testing
-    print("\n" + "="*70)
-    print("TESTING")
-    print("="*70)
+    print("Testing...")
     
     metrics = test_model(model, test_loader, device)
     
     # Plot results
-    if not args.no_plot:
-        # ROC curve
-        roc_path = os.path.join(args.output_dir, 'pipeline1_roc_curve.png')
+    if not NO_PLOT:
+        # ROC
+        roc_path = os.path.join(OUTPUT_DIR, 'pipeline1_roc_curve.png')
         plot_roc_curve(metrics, save_path=roc_path)
         
         # Confusion matrix
-        cm_path = os.path.join(args.output_dir, 'pipeline1_confusion_matrix.png')
+        cm_path = os.path.join(OUTPUT_DIR, 'pipeline1_confusion_matrix.png')
         plot_confusion_matrix(metrics['confusion_matrix'], save_path=cm_path)
     
     return metrics
 
 
-def run_pipeline_2(args):
-    """Run Pipeline 2: Two-channel ensemble CNN (Byteplot + Bigram-DCT)."""
-    print("="*70)
-    print("PIPELINE 2: ENSEMBLE MODEL (Byteplot + Bigram-DCT)")
-    print("="*70)
+def run_pipeline_2():
+    print("Pipeline 2: Ensemble Model (Byteplot + Bigram-DCT)")
     print()
     
-    # Setup
-    device = get_device(args.device)
-    setup_directories(args.checkpoint_dir, args.output_dir)
+    device = get_device(DEVICE)
+    setup_directories(CHECKPOINT_DIR, OUTPUT_DIR)
     
-    # Create data loaders
     print("Loading data...")
     train_loader, val_loader, test_loader = create_data_loaders(
-        data_dir=args.data_dir,
+        data_dir=DATA_DIR,
         mode='two_channel',
-        batch_size=args.batch_size,
-        train_split=args.train_split,
-        val_split=args.val_split,
-        test_split=args.test_split,
-        max_samples=args.max_samples,
+        batch_size=BATCH_SIZE,
+        train_split=TRAIN_SPLIT,
+        val_split=VAL_SPLIT,
+        test_split=TEST_SPLIT,
+        max_samples=MAX_SAMPLES,
         num_workers=0
     )
     
-    # Create model
     print("\nInitializing model...")
     model = C3C2D_TwoChannel()
     print(f"Model: 3C2D CNN (Two-Channel)")
     print(f"Total parameters: {count_parameters(model):,}")
     
-    # Define paths
-    model_save_path = os.path.join(args.checkpoint_dir, 'pipeline2_best.pth')
+    model_save_path = os.path.join(CHECKPOINT_DIR, 'pipeline2_best.pth')
     
-    # Load model if specified
-    if args.model_path:
-        print(f"\nLoading model from {args.model_path}")
-        checkpoint = torch.load(args.model_path, map_location=device)
+    if MODEL_PATH:
+        print(f"\nLoading model from {MODEL_PATH}")
+        checkpoint = torch.load(MODEL_PATH, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
     
     # Training
-    if not args.test_only:
-        print("\n" + "="*70)
-        print("TRAINING")
-        print("="*70)
+    if not TEST_ONLY:
+        print("Training...")
         
         history = train_model(
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
-            num_epochs=args.epochs,
-            learning_rate=args.learning_rate,
+            num_epochs=EPOCHS,
+            learning_rate=LEARNING_RATE,
             device=device,
             save_path=model_save_path,
-            patience=args.patience
+            patience=PATIENCE
         )
         
-        # Plot training history
-        if not args.no_plot:
-            plot_path = os.path.join(args.output_dir, 'pipeline2_training_history.png')
+        if not NO_PLOT:
+            plot_path = os.path.join(OUTPUT_DIR, 'pipeline2_training_history.png')
             plot_training_history(history, save_path=plot_path)
     
-    # Testing
-    print("\n" + "="*70)
-    print("TESTING")
-    print("="*70)
+    print("Testing...")
     
     metrics = test_model(model, test_loader, device)
     
-    # Plot results
-    if not args.no_plot:
-        # ROC curve
-        roc_path = os.path.join(args.output_dir, 'pipeline2_roc_curve.png')
+    if not NO_PLOT:
+        # ROC
+        roc_path = os.path.join(OUTPUT_DIR, 'pipeline2_roc_curve.png')
         plot_roc_curve(metrics, save_path=roc_path)
         
         # Confusion matrix
-        cm_path = os.path.join(args.output_dir, 'pipeline2_confusion_matrix.png')
+        cm_path = os.path.join(OUTPUT_DIR, 'pipeline2_confusion_matrix.png')
         plot_confusion_matrix(metrics['confusion_matrix'], save_path=cm_path)
     
     return metrics
 
 
 def main():
-    """Main execution function."""
-    args = parse_args()
-    
-    # Validate arguments
-    if args.test_only and args.model_path is None:
-        raise ValueError("--test_only requires --model_path")
-    
-    # Print configuration
-    print("\n" + "="*70)
-    print("MALWARE DETECTION USING FREQUENCY DOMAIN-BASED IMAGE VISUALIZATION")
-    print("="*70)
+    if TEST_ONLY and MODEL_PATH is None:
+        raise ValueError("TEST_ONLY requires MODEL_PATH to be set")
+
     print("\nConfiguration:")
-    print(f"  Pipeline:       {args.pipeline}")
-    print(f"  Data directory: {args.data_dir}")
-    print(f"  Batch size:     {args.batch_size}")
-    print(f"  Epochs:         {args.epochs}")
-    print(f"  Learning rate:  {args.learning_rate}")
-    print(f"  Device:         {args.device}")
-    print(f"  Test only:      {args.test_only}")
+    print(f"\tPipeline:       {PIPELINE}")
+    print(f"\tData directory: {DATA_DIR}")
+    print(f"\tBatch size:     {BATCH_SIZE}")
+    print(f"\tEpochs:         {EPOCHS}")
+    print(f"\tLearning rate:  {LEARNING_RATE}")
+    print(f"\tDevice:         {DEVICE}")
+    print(f"\tTest only:      {TEST_ONLY}")
     print()
     
-    # Run selected pipeline
-    if args.pipeline == 1:
-        metrics = run_pipeline_1(args)
-    elif args.pipeline == 2:
-        metrics = run_pipeline_2(args)
+    if PIPELINE == 1:
+        metrics = run_pipeline_1()
+    elif PIPELINE == 2:
+        metrics = run_pipeline_2()
+    else:
+        raise ValueError(f"Invalid PIPELINE value: {PIPELINE}. Must be 1 or 2.")
     
-    # Print final summary
-    print("\n" + "="*70)
-    print("FINAL RESULTS")
-    print("="*70)
-    print(f"Pipeline {args.pipeline} Accuracy: {metrics['accuracy']*100:.2f}%")
-    print(f"Pipeline {args.pipeline} AUC:      {metrics.get('auc', 0):.4f}")
-    print("="*70)
-    print("\nTraining complete!")
-    print(f"Results saved to: {args.output_dir}")
-    print(f"Model saved to:   {args.checkpoint_dir}")
+    print(f"\nPipeline {PIPELINE} Accuracy: {metrics['accuracy']*100:.2f}%")
+    print(f"Pipeline {PIPELINE} AUC:      {metrics.get('auc', 0):.4f}")
+    print(f"Results saved to: {OUTPUT_DIR}")
+    print(f"Model saved to:   {CHECKPOINT_DIR}")
 
 
 if __name__ == "__main__":
