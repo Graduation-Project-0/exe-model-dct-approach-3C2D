@@ -16,7 +16,6 @@ from sklearn.metrics import (
     f1_score
 )
 
-
 class MetricsTracker:    
     def __init__(self):
         self.reset()
@@ -27,25 +26,11 @@ class MetricsTracker:
         self.y_scores = []
     
     def update(self, labels, predictions, scores):
-        """
-        Update with batch results.
-        
-        Args:
-            labels: Ground truth labels (0 or 1)
-            predictions: Binary predictions (0 or 1)
-            scores: Prediction scores (0-1 range, from sigmoid)
-        """
         self.y_true.extend(labels.cpu().numpy().tolist())
         self.y_pred.extend(predictions.cpu().numpy().tolist())
         self.y_scores.extend(scores.cpu().numpy().tolist())
     
     def compute_metrics(self) -> Dict[str, float]:
-        """
-        Compute all metrics.
-        
-        Returns:
-            Dictionary with accuracy, precision, recall, F1, AUC
-        """
         y_true = np.array(self.y_true)
         y_pred = np.array(self.y_pred)
         y_scores = np.array(self.y_scores)
@@ -71,7 +56,6 @@ class MetricsTracker:
         
         return metrics
 
-
 def train_epoch(
     model: nn.Module,
     train_loader: DataLoader,
@@ -79,19 +63,6 @@ def train_epoch(
     optimizer: optim.Optimizer,
     device: torch.device
 ) -> Tuple[float, float]:
-    """
-    Train for one epoch.
-    
-    Args:
-        model: Neural network model
-        train_loader: Training data loader
-        criterion: Loss function
-        optimizer: Optimizer
-        device: Device to train on
-        
-    Returns:
-        average_loss, accuracy
-    """
     model.train()
     running_loss = 0.0
     correct = 0
@@ -119,25 +90,12 @@ def train_epoch(
     
     return avg_loss, accuracy
 
-
 def evaluate(
     model: nn.Module,
     data_loader: DataLoader,
     criterion: nn.Module,
     device: torch.device
 ) -> Tuple[float, Dict[str, float]]:
-    """
-    Evaluate model on a dataset.
-    
-    Args:
-        model: Neural network model
-        data_loader: Data loader
-        criterion: Loss function
-        device: Device to evaluate on
-        
-    Returns:
-        average_loss, metrics_dict
-    """
     model.eval()
     running_loss = 0.0
     metrics_tracker = MetricsTracker()
@@ -161,7 +119,6 @@ def evaluate(
     
     return avg_loss, metrics
 
-
 def train_model(
     model: nn.Module,
     train_loader: DataLoader,
@@ -172,22 +129,6 @@ def train_model(
     save_path: Optional[str] = None,
     patience: int = 10
 ) -> Dict:
-    """
-    Complete training loop with validation and early stopping.
-    
-    Args:
-        model: Neural network model
-        train_loader: Training data loader
-        val_loader: Validation data loader
-        num_epochs: Number of training epochs
-        learning_rate: Learning rate
-        device: Device to train on
-        save_path: Path to save best model
-        patience: Early stopping patience
-        
-    Returns:
-        Dictionary with training history
-    """
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -259,23 +200,11 @@ def train_model(
     
     return history
 
-
 def test_model(
     model: nn.Module,
     test_loader: DataLoader,
     device: torch.device = None
 ) -> Dict:
-    """
-    Test model and compute comprehensive metrics.
-    
-    Args:
-        model: Trained model
-        test_loader: Test data loader
-        device: Device to test on
-        
-    Returns:
-        Dictionary with all test metrics
-    """
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -299,15 +228,7 @@ def test_model(
     metrics['test_loss'] = test_loss
     return metrics
 
-
 def plot_training_history(history: Dict, save_path: Optional[str] = None):
-    """
-    Plot training history.
-    
-    Args:
-        history: Training history dictionary
-        save_path: Path to save plot
-    """
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
     
     epochs = range(1, len(history['train_loss']) + 1)
@@ -346,15 +267,7 @@ def plot_training_history(history: Dict, save_path: Optional[str] = None):
     
     plt.show()
 
-
 def plot_roc_curve(metrics: Dict, save_path: Optional[str] = None):
-    """
-    Plot ROC curve.
-    
-    Args:
-        metrics: Metrics dictionary with 'fpr' and 'tpr'
-        save_path: Path to save plot
-    """
     if 'fpr' not in metrics or 'tpr' not in metrics:
         print("ROC curve data not available")
         return
@@ -374,15 +287,7 @@ def plot_roc_curve(metrics: Dict, save_path: Optional[str] = None):
     
     plt.show()
 
-
 def plot_confusion_matrix(cm: np.ndarray, save_path: Optional[str] = None):
-    """
-    Plot confusion matrix heatmap.
-    
-    Args:
-        cm: Confusion matrix
-        save_path: Path to save plot
-    """
     plt.figure(figsize=(8, 6))
     plt.imshow(cm, interpolation='nearest', cmap='Blues')
     plt.title('Confusion Matrix')

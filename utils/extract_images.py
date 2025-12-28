@@ -13,50 +13,56 @@ from utils.image_generation import (
     create_two_channel_image, 
     read_binary_file, 
     extract_bigrams, 
-    create_bigram_image
+    create_bigram_image,
+    create_byteplot_from_bytes,
+    apply_2d_dct
 )
 
 def process_file(file_info):
-    """
-    Process a single file and save it.
-    Args:
-        file_info: tuple (src_path, output_class_dir, filename_base, formats)
-    """
     src_path, output_class_dir, filename_base, formats = file_info
     
     try:
-        image = create_two_channel_image(src_path)
+        byte_data = read_binary_file(src_path)
         
         status = "success"
         
+        # Byteplot
+        byteplot = create_byteplot_from_bytes(byte_data, target_size=(256, 256))
+        byteplot_uint8 = (byteplot * 255).astype(np.uint8)
+        
+        # Bigram & DCT
+        bigram_freq = extract_bigrams(byte_data)
+        bigram_img = create_bigram_image(bigram_freq, zero_out_0000=True)
+        dct_img = apply_2d_dct(bigram_img)
+        dct_uint8 = (dct_img * 255).astype(np.uint8)
+        
+        xor_norm = None
+        if 'npy' in formats or 'png' in formats:
+            xor_image = np.bitwise_xor(byteplot_uint8, dct_uint8)
+            xor_norm = xor_image.astype(np.float32) / 255.0
+
         if 'npy' in formats:
             npy_path = os.path.join(output_class_dir, 'npy', filename_base + '.npy')
             if not os.path.exists(npy_path):
-                np.save(npy_path, image)
+                np.save(npy_path, xor_norm)
             else:
                 if len(formats) == 1: status = "skipped"
 
         if 'png' in formats:
+            xor_path = os.path.join(output_class_dir, 'xor', filename_base + '.png')
+            if not os.path.exists(xor_path):
+                cv2.imwrite(xor_path, xor_image)
+
             byteplot_path = os.path.join(output_class_dir, 'byteplot', filename_base + '.png')
             if not os.path.exists(byteplot_path):
-                byteplot = (image[:, :, 0] * 255).astype(np.uint8)
-                cv2.imwrite(byteplot_path, byteplot)
+                cv2.imwrite(byteplot_path, byteplot_uint8)
             
             dct_path = os.path.join(output_class_dir, 'dct', filename_base + '.png')
             if not os.path.exists(dct_path):
-                dct_img = image[:, :, 1]
-                if dct_img.max() > 0:
-                    dct_img = (dct_img / dct_img.max() * 255).astype(np.uint8)
-                else:
-                    dct_img = (dct_img * 255).astype(np.uint8)
-                cv2.imwrite(dct_path, dct_img)
+                cv2.imwrite(dct_path, dct_uint8)
 
             bigram_path = os.path.join(output_class_dir, 'bigram', filename_base + '.png')
             if not os.path.exists(bigram_path):
-                byte_data = read_binary_file(src_path)
-                bigram_freq = extract_bigrams(byte_data)
-                bigram_img = create_bigram_image(bigram_freq, zero_out_0000=True)
-                
                 if bigram_img.max() > 0:
                     bigram_save = (bigram_img / bigram_img.max() * 255).astype(np.uint8)
                 else:
@@ -86,7 +92,7 @@ def main():
     classes = ['benign', 'malware']
     subdirs = []
     if 'npy' in formats: subdirs.append('npy')
-    if 'png' in formats: subdirs.extend(['byteplot', 'dct', 'bigram'])
+    if 'png' in formats: subdirs.extend(['byteplot', 'dct', 'bigram', 'xor'])
 
     tasks = []
     

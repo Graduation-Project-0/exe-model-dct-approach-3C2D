@@ -16,8 +16,7 @@ MODEL_CONFIG = {
     'fc_layers': [512, 256],
     'dropout_rate': 0.5,
     
-    'pipeline_1_channels': 1,  # Bigram-DCT only
-    'pipeline_2_channels': 2,  # Byteplot + Bigram-DCT
+    'input_channels': 1,  # XOR Model (Single Channel)
 }
 
 TRAINING_CONFIG = {
@@ -58,18 +57,18 @@ LOG_CONFIG = {
 }
 
 
-def get_config(pipeline: int = 1):
+def get_config(pipeline: int = 2):
     """
-    Get complete configuration for specified pipeline.
+    Get complete configuration.
     
     Args:
-        pipeline: 1 for Bigram-DCT, 2 for Ensemble
+        pipeline: Kept for compatibility, always uses XOR model
         
     Returns:
         Dictionary with all configuration parameters
     """
     config = {
-        'pipeline': pipeline,
+        'pipeline': 2, # Always pipeline 2 (XOR)
         'data': DATA_CONFIG.copy(),
         'model': MODEL_CONFIG.copy(),
         'training': TRAINING_CONFIG.copy(),
@@ -79,10 +78,7 @@ def get_config(pipeline: int = 1):
         'log': LOG_CONFIG.copy(),
     }
     
-    if pipeline == 1:
-        config['model']['input_channels'] = MODEL_CONFIG['pipeline_1_channels']
-    elif pipeline == 2:
-        config['model']['input_channels'] = MODEL_CONFIG['pipeline_2_channels']
+    config['model']['input_channels'] = MODEL_CONFIG['input_channels']
     
     return config
 
@@ -99,10 +95,6 @@ def print_config(config):
 
 # Example usage
 if __name__ == "__main__":
-    print("Pipeline 1 Configuration:")
-    config1 = get_config(pipeline=1)
-    print_config(config1)
-    
-    print("\n\nPipeline 2 Configuration:")
-    config2 = get_config(pipeline=2)
-    print_config(config2)
+    print("XOR Model Configuration:")
+    config = get_config(pipeline=2)
+    print_config(config)

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from config import get_config
 from utils.data_loader import create_data_loaders
-from models.cnn_models import C3C2D_SingleChannel, C3C2D_TwoChannel, count_parameters
+from models.cnn_models import C3C2D_TwoChannel, count_parameters
 from utils.training import (
     train_model, 
     test_model, 
@@ -28,7 +28,7 @@ def get_device(device_arg: str) -> torch.device:
 
 def run_pipeline(config):
     pipeline_id = config['pipeline']
-    print(f"Pipeline {pipeline_id}: {'BIGRAM-DCT Frequency Image (Single-Channel)' if pipeline_id == 1 else 'Ensemble Model (Byteplot + Bigram-DCT)'}")
+    print(f"Pipeline {pipeline_id}: XOR Model (Byteplot + Bigram-DCT)")
     print()
     
     device = get_device(config['training']['device'])
@@ -37,7 +37,7 @@ def run_pipeline(config):
     print("Loading data...")
     train_loader, val_loader, test_loader = create_data_loaders(
         data_dir=config['data']['data_dir'],
-        mode='bigram_dct' if pipeline_id == 1 else 'two_channel',
+        mode='two_channel',
         batch_size=config['training']['batch_size'],
         train_split=config['data']['train_split'],
         val_split=config['data']['val_split'],
@@ -47,12 +47,8 @@ def run_pipeline(config):
     )
     
     print("\nInitializing model...")
-    if pipeline_id == 1:
-        model = C3C2D_SingleChannel()
-        print(f"Model: 3C2D CNN (Single-Channel)")
-    else:
-        model = C3C2D_TwoChannel()
-        print(f"Model: 3C2D CNN (Two-Channel)")
+    model = C3C2D_TwoChannel()
+    print(f"Model: 3C2D CNN (XOR Model)")
 
     print(f"Total parameters: {count_parameters(model):,}")
     
